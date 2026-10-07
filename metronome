@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Metronome</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,600,1,0" />
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%;
+            background: #f97316; cursor: pointer; margin-top: -8px;
+            box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 8px; cursor: pointer; background: #3f3f46; border-radius: 4px;
+        }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        
+        .beat-dot {
+            width: 16px; height: 16px; 
+            border-radius: 50%; background-color: #3f3f46; transition: all 0.1s ease;
+        }
+        .beat-dot.active { background-color: #3b82f6; box-shadow: 0 0 15px #3b82f6; transform: scale(1.2); }
+        .beat-dot.active.accent { background-color: #f97316; box-shadow: 0 0 15px #f97316; transform: scale(1.3); }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 select-none relative">
+
+    <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl w-full max-w-sm flex flex-col items-center">
+        
+        <!-- Header and Controls -->
+        <div class="w-full flex justify-between items-start mb-8">
+            <h1 class="text-xl font-bold text-zinc-300 mt-2">Metronome</h1>
+            
+            <div class="flex flex-col gap-2">
+                <!-- Time Signature Select -->
+                <select id="time-signature" class="w-full bg-zinc-800 text-orange-500 font-bold border border-zinc-700 rounded-lg px-3 py-1.5 outline-none cursor-pointer focus:border-orange-500 transition-colors text-center">
+                    <option value="2">2/4</option>
+                    <option value="3">3/4</option>
+                    <option value="4" selected>4/4</option>
+                    <option value="5">5/4</option>
+                    <option value="6">6/8</option>
+                    <option value="7">7/8</option>
+                    <option disabled>─────────</option>
+                    <option value="custom" class="bg-zinc-700 text-white">Add Custom...</option>
+                </select>
+
+                <!-- High Pitch Button -->
+                <button id="btn-pitch" class="w-full rounded-lg bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 flex items-center justify-center gap-1.5 px-3 py-1.5 transition-colors outline-none text-xs font-semibold">
+                    <span class="material-symbols-rounded text-[16px]">graphic_eq</span>
+                    High Pitch Mode
+                </button>
+            </div>
+        </div>
+
+        <!-- BPM Display -->
+        <div class="flex items-baseline gap-2 mb-6">
+            <input type="number" id="bpm-display" value="120" class="w-36 bg-transparent text-center text-7xl font-black text-white tracking-tighter outline-none border-b-2 border-transparent focus:border-orange-500 transition-colors cursor-text">
+            <span class="text-xl text-zinc-500 font-bold">BPM</span>
+        </div>
+
+        <!-- Visual Beats (LEDs) -->
+        <div id="visualizer" class="flex flex-wrap gap-3 mb-8 min-h-[2rem] w-full items-center justify-center">
+            <!-- Dots will be added via JS -->
+        </div>
+
+        <!-- Slider and Fine-tune Buttons -->
+        <div class="w-full flex items-center gap-4 mb-10">
+            <button id="btn-minus" class="w-10 h-10 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition-colors active:scale-95">
+                <span class="material-symbols-rounded">remove</span>
+            </button>
+            <div class="flex-1">
+                <input type="range" id="bpm-slider" min="40" max="250" value="120">
+            </div>
+            <button id="btn-plus" class="w-10 h-10 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 transition-colors active:scale-95">
+                <span class="material-symbols-rounded">add</span>
+            </button>
+        </div>
+
+        <!-- Play/Stop Button -->
+        <button id="btn-play" class="w-24 h-24 rounded-full bg-orange-500 hover:bg-orange-400 text-white shadow-[0_0_30px_rgba(249,115,22,0.4)] flex items-center justify-center transition-all active:scale-90">
+            <span id="play-icon" class="material-symbols-rounded text-5xl ml-2">play_arrow</span>
+        </button>
+
+    </div>
+
+    <!-- CUSTOM TIME SIGNATURE MODAL -->
+    <div id="custom-ts-modal" class="hidden absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 shadow-2xl w-72 flex flex-col items-center">
+            <h2 class="text-white text-lg font-bold mb-6">Custom Time Signature</h2>
+            
+            <div class="flex items-center gap-3 mb-8 text-3xl text-zinc-400 font-light">
+                <input type="number" id="ts-top" min="1" max="32" value="9" class="w-20 bg-zinc-800 text-white text-center rounded outline-none border-2 border-transparent focus:border-orange-500 py-1">
+                <span>/</span>
+                <select id="ts-bottom" class="w-20 bg-zinc-800 text-white text-center rounded outline-none border-2 border-transparent focus:border-orange-500 py-1 appearance-none cursor-pointer">
+                    <option value="2">2</option>
+                    <option value="4">4</option>
+                    <option value="8" selected>8</option>
+                    <option value="16">16</option>
+                    <option value="32">32</option>
+                </select>
+            </div>
+
+            <div class="flex gap-3 w-full">
+                <button id="btn-cancel-ts" class="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg py-2 font-semibold transition-colors">Cancel</button>
+                <button id="btn-save-ts" class="flex-1 bg-orange-500 hover:bg-orange-400 text-white rounded-lg py-2 font-semibold transition-colors">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bpmDisplay = document.getElementById('bpm-display');
+        const bpmSlider = document.getElementById('bpm-slider');
+        const btnMinus = document.getElementById('btn-minus');
+        const btnPlus = document.getElementById('btn-plus');
+        const btnPlay = document.getElementById('btn-play');
+        const playIcon = document.getElementById('play-icon');
+        const timeSignatureSelect = document.getElementById('time-signature');
+        const visualizer = document.getElementById('visualizer');
+        const btnPitch = document.getElementById('btn-pitch');
+
+        const modal = document.getElementById('custom-ts-modal');
+        const btnCancelTs = document.getElementById('btn-cancel-ts');
+        const btnSaveTs = document.getElementById('btn-save-ts');
+        const tsTopInput = document.getElementById('ts-top');
+        const tsBottomInput = document.getElementById('ts-bottom');
+
+        let bpm = 120;
+        let beatsPerMeasure = 4;
+        let previousTimeSignature = "4"; 
+        let isPlaying = false;
+        let isHighPitch = false; // High pitch state
+        
+        let audioContext;
+        let currentBeatInBar = 0;
+        let nextNoteTime = 0.0;
+        let timerID;
+        let notesInQueue = []; 
+
+        function updateBPM(newBPM) {
+            if (isNaN(newBPM)) newBPM = bpm; 
+            bpm = Math.min(Math.max(newBPM, 40), 250); 
+            bpmDisplay.value = bpm;
+            bpmSlider.value = bpm;
+        }
+
+        function createVisualDots() {
+            visualizer.innerHTML = '';
+            for (let i = 0; i < beatsPerMeasure; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'beat-dot';
+                dot.id = `dot-${i}`;
+                visualizer.appendChild(dot);
+            }
+        }
+
+        function playClick(beatNumber, time) {
+            const osc = audioContext.createOscillator();
+            const envelope = audioContext.createGain();
+
+            osc.connect(envelope);
+            envelope.connect(audioContext.destination);
+
+            // Double the frequencies if High Pitch mode is active
+            const baseFreq = isHighPitch ? 1600 : 800;
+            const accentFreq = isHighPitch ? 2400 : 1200;
+
+            if (beatNumber === 0) {
+                osc.frequency.value = accentFreq; 
+            } else {
+                osc.frequency.value = baseFreq;  
+            }
+
+            envelope.gain.value = 1;
+            envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+            osc.start(time);
+            osc.stop(time + 0.05);
+
+            notesInQueue.push({ note: beatNumber, time: time });
+        }
+
+        function nextNote() {
+            const secondsPerBeat = 60.0 / bpm;
+            nextNoteTime += secondsPerBeat;
+            currentBeatInBar = (currentBeatInBar + 1) % beatsPerMeasure;
+        }
+
+        function scheduler() {
+            while (nextNoteTime < audioContext.currentTime + 0.1) {
+                playClick(currentBeatInBar, nextNoteTime);
+                nextNote();
+            }
+            timerID = window.setTimeout(scheduler, 25.0);
+        }
+
+        function drawVisuals() {
+            let currentNote = -1;
+
+            while (notesInQueue.length && notesInQueue[0].time < audioContext.currentTime) {
+                currentNote = notesInQueue[0].note;
+                notesInQueue.splice(0, 1); 
+            }
+
+            if (currentNote !== -1) {
+                document.querySelectorAll('.beat-dot').forEach(dot => {
+                    dot.classList.remove('active', 'accent');
+                });
+                
+                const activeDot = document.getElementById(`dot-${currentNote}`);
+                if (activeDot) {
+                    activeDot.classList.add('active');
+                    if (currentNote === 0) activeDot.classList.add('accent'); 
+                }
+            }
+
+            if (isPlaying) {
+                requestAnimationFrame(drawVisuals);
+            }
+        }
+
+        function toggleMetronome() {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            isPlaying = !isPlaying;
+
+            if (isPlaying) {
+                if (audioContext.state === 'suspended') audioContext.resume();
+                currentBeatInBar = 0;
+                nextNoteTime = audioContext.currentTime + 0.05;
+                
+                btnPlay.classList.replace('bg-orange-500', 'bg-zinc-700');
+                btnPlay.classList.remove('shadow-[0_0_30px_rgba(249,115,22,0.4)]');
+                playIcon.innerText = 'stop';
+                playIcon.classList.remove('ml-2');
+
+                scheduler();
+                requestAnimationFrame(drawVisuals);
+            } else {
+                window.clearTimeout(timerID);
+                btnPlay.classList.replace('bg-zinc-700', 'bg-orange-500');
+                btnPlay.classList.add('shadow-[0_0_30px_rgba(249,115,22,0.4)]');
+                playIcon.innerText = 'play_arrow';
+                playIcon.classList.add('ml-2');
+
+                document.querySelectorAll('.beat-dot').forEach(dot => {
+                    dot.classList.remove('active', 'accent');
+                });
+            }
+        }
+
+        // --- High Pitch Button Action ---
+        btnPitch.addEventListener('click', () => {
+            isHighPitch = !isHighPitch;
+            if (isHighPitch) {
+                btnPitch.classList.replace('text-zinc-400', 'text-orange-500');
+                btnPitch.classList.replace('bg-zinc-800', 'bg-zinc-700');
+            } else {
+                btnPitch.classList.replace('text-orange-500', 'text-zinc-400');
+                btnPitch.classList.replace('bg-zinc-700', 'bg-zinc-800');
+            }
+        });
+
+        // --- Custom Time Signature Actions ---
+        timeSignatureSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                modal.classList.remove('hidden');
+                tsTopInput.focus();
+                tsTopInput.select();
+            } else {
+                previousTimeSignature = e.target.value;
+                beatsPerMeasure = parseInt(e.target.value);
+                createVisualDots();
+                if(isPlaying) currentBeatInBar = 0; 
+            }
+        });
+
+        btnCancelTs.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            timeSignatureSelect.value = previousTimeSignature;
+        });
+
+        btnSaveTs.addEventListener('click', () => {
+            const top = parseInt(tsTopInput.value);
+            const bottom = tsBottomInput.value;
+            
+            if (top > 0 && top <= 32) {
+                const newValue = top.toString();
+                const newText = `${top}/${bottom}`;
+
+                const newOption = document.createElement('option');
+                newOption.value = newValue;
+                newOption.innerText = newText;
+                
+                const separator = timeSignatureSelect.querySelector('option[disabled]');
+                timeSignatureSelect.insertBefore(newOption, separator);
+                
+                timeSignatureSelect.value = newValue;
+                previousTimeSignature = newValue;
+                beatsPerMeasure = top;
+                createVisualDots();
+                if(isPlaying) currentBeatInBar = 0; 
+                
+                modal.classList.add('hidden');
+            } else {
+                alert("Please enter a number of beats between 1 and 32.");
+                tsTopInput.value = 9;
+            }
+        });
+
+        // --- Other Event Listeners ---
+        bpmDisplay.addEventListener('change', (e) => updateBPM(parseInt(e.target.value)));
+        bpmDisplay.addEventListener('keydown', (e) => { if (e.key === 'Enter') bpmDisplay.blur(); });
+        bpmDisplay.addEventListener('focus', function() { this.select(); });
+        bpmSlider.addEventListener('input', (e) => updateBPM(parseInt(e.target.value)));
+        btnMinus.addEventListener('click', () => updateBPM(bpm - 1));
+        btnPlus.addEventListener('click', () => updateBPM(bpm + 1));
+        btnPlay.addEventListener('click', toggleMetronome);
+
+        createVisualDots();
+    </script>
+</body>
+</html>
